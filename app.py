@@ -64,7 +64,7 @@ with st.sidebar:
         × No PDF export
         × No budget calculator
         """)
-    elif plan == "Basic - MWK 10,000/mo":
+    elif plan == "Basic - MWK 50,000/mo":
         st.success("""
         **Includes:**
         ✓ All charts
@@ -85,9 +85,10 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📞 Contact")
     st.markdown("Email: mwangomanicholas@gmail.com")
-    st.markdown("📱 WhatsApp: +265 [886867758]")
+    st.markdown("📱 WhatsApp: +265 886867758")
+    st.markdown("🌍 Built in Malawi 🇲🇼")
 
-# Function to find matching columns (improved)
+# Function to find matching columns
 def find_column(df, possible_names):
     """Find a column that matches any of the possible names"""
     df_cols_lower = {col.lower().strip(): col for col in df.columns}
@@ -97,7 +98,7 @@ def find_column(df, possible_names):
             return df_cols_lower[name_lower]
     return None
 
-# Function to detect column types (improved)
+# Function to detect column types
 def detect_columns(df):
     """Detect what types of columns are in the dataframe"""
     col_types = {
@@ -303,7 +304,7 @@ if uploaded_file is not None:
                         st.dataframe(text_df[col].value_counts().head(5))
         
         with tab2:
-            if plan == "Premium - MWK 40,000/mo":
+            if plan == "Premium - MWK 100,000/mo":
                 st.markdown("### 🎯 SDG Progress Report")
                 
                 # Create SDG metrics based on available data
@@ -365,10 +366,10 @@ if uploaded_file is not None:
                 else:
                     st.info("ℹ️ No SDG-related columns detected in your data. Upgrade to Premium for full SDG tracking.")
             else:
-                st.warning("⚠️ SDG Goal analysis is available in Premium plan (MWK 40,000/month)")
+                st.warning("⚠️ SDG Goal analysis is available in Premium plan (MWK 100,000/month)")
         
         with tab3:
-            if plan == "Premium - MWK 40,000/mo":
+            if plan == "Premium - MWK 100,000/mo":
                 st.markdown("### 💰 Budget Calculator")
                 
                 # Use available data for budget calculations
@@ -417,7 +418,7 @@ if uploaded_file is not None:
                     - Cost per case prevented: MWK {int(comprehensive_cost / (target_pop * 1.6)):,}
                     """)
             else:
-                st.warning("⚠️ Budget calculator is available in Premium plan (MWK 40,000/month)")
+                st.warning("⚠️ Budget calculator is available in Premium plan (MWK 100,000/month)")
         
         with tab4:
             st.markdown("### 📄 Generate Reports")
@@ -484,4 +485,4 @@ KEY METRICS:
 # Footer
 st.markdown("---")
 st.markdown("© 2024 Impact Data Dashboard | Built for NGOs | Works with ANY CSV/Excel file")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | 📱 WhatsApp: +265 886867758</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | 📱 WhatsApp: +265 886867758 | 📧 mwangomanicholas@gmail.com</div>", unsafe_allow_html=True)
