@@ -87,27 +87,26 @@ with st.sidebar:
     st.markdown("Email: mwangomanicholas@gmail.com")
     st.markdown("📱 WhatsApp: +265 [Your Number]")
 
-# Function to find matching columns
+# Function to find matching columns (improved)
 def find_column(df, possible_names):
     """Find a column that matches any of the possible names"""
-    df_cols_lower = {col.lower(): col for col in df.columns}
+    df_cols_lower = {col.lower().strip(): col for col in df.columns}
     for name in possible_names:
-        if name.lower() in df_cols_lower:
-            return df_cols_lower[name.lower()]
+        name_lower = name.lower().strip()
+        if name_lower in df_cols_lower:
+            return df_cols_lower[name_lower]
     return None
 
-# Function to detect column types
+# Function to detect column types (improved)
 def detect_columns(df):
     """Detect what types of columns are in the dataframe"""
     col_types = {
-        'nutrition': find_column(df, ['nutrition', 'nutrition_status', 'malnourished', 'status', 'outcome']),
-        'district': find_column(df, ['district', 'region', 'location', 'area', 'zone', 'village']),
+        'nutrition': find_column(df, ['nutrition_status', 'nutrition', 'malnourished', 'status', 'outcome', 'nutrition status']),
+        'district': find_column(df, ['district', 'region', 'location', 'area', 'zone', 'village', 'dist']),
         'gender': find_column(df, ['gender', 'sex']),
-        'age': find_column(df, ['age', 'age_group', 'age_years', 'age_months']),
-        'water': find_column(df, ['water', 'clean_water', 'water_access', 'has_water']),
-        'household': find_column(df, ['household', 'hh_size', 'family_size', 'hh_members']),
-        'income': find_column(df, ['income', 'wealth', 'socioeconomic', 'ses']),
-        'education': find_column(df, ['education', 'edu', 'school']),
+        'age': find_column(df, ['age', 'age_group', 'age_years', 'age_months', 'years']),
+        'water': find_column(df, ['has_clean_water', 'water', 'clean_water', 'water_access', 'has water']),
+        'household': find_column(df, ['household_size', 'household', 'hh_size', 'family_size', 'hhsize']),
     }
     return col_types
 
@@ -134,9 +133,9 @@ if uploaded_file is not None:
             st.markdown("**🔍 Detected Columns:**")
             for key, value in detected.items():
                 if value:
-                    st.markdown(f"✅ {key}: '{value}'")
+                    st.markdown(f"✅ **{key}**: '{value}'")
                 else:
-                    st.markdown(f"❌ {key}: Not found")
+                    st.markdown(f"❌ **{key}**: Not found")
         
         # Data cleaning
         def clean_data(df):
@@ -168,7 +167,7 @@ if uploaded_file is not None:
                 malnourished_keywords = ['malnourished', 'malnutrition', 'stunted', 'wasted', 'underweight', 'severe', 'moderate', 'yes', '1', 'true']
                 mask = df_clean[nutrition_col].astype(str).str.lower().str.contains('|'.join(malnourished_keywords), na=False)
                 malnourished = mask.sum()
-                malnutrition_rate = (malnourished / total) * 100
+                malnutrition_rate = (malnourished / total) * 100 if total > 0 else 0
             elif pd.api.types.is_numeric_dtype(df_clean[nutrition_col]):
                 # Assume it's a score or percentage
                 malnutrition_rate = df_clean[nutrition_col].mean()
@@ -200,7 +199,7 @@ if uploaded_file is not None:
                 st.metric("Districts/Regions", districts)
             else:
                 text_cols = len(df_clean.select_dtypes(include=['object']).columns)
-                st.metric("Text Columns", text_cols)
+                st.metric("Categories", text_cols)
         
         # Create tabs for different views
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Analysis", "🎯 SDG Goals", "💰 Budget", "📄 Reports"])
@@ -229,14 +228,26 @@ if uploaded_file is not None:
                              title=f'Analysis by {district_col}',
                              color='Value', color_continuous_scale='reds')
                 st.plotly_chart(fig, use_container_width=True)
+            elif detected['district']:
+                # Just show district counts if no nutrition data
+                st.markdown("#### 🏘️ District Distribution")
+                district_col = detected['district']
+                district_counts = df_clean[district_col].value_counts().reset_index()
+                district_counts.columns = [district_col, 'Count']
+                
+                fig = px.bar(district_counts, x=district_col, y='Count',
+                             title=f'Distribution by {district_col}',
+                             color='Count', color_continuous_scale='blues')
+                st.plotly_chart(fig, use_container_width=True)
             
             # Gender analysis if available
             if detected['gender']:
                 st.markdown("#### 👥 Gender Distribution")
                 gender_col = detected['gender']
-                gender_counts = df_clean[gender_col].value_counts()
+                gender_counts = df_clean[gender_col].value_counts().reset_index()
+                gender_counts.columns = [gender_col, 'Count']
                 
-                fig = px.pie(values=gender_counts.values, names=gender_counts.index,
+                fig = px.pie(gender_counts, values='Count', names=gender_col,
                              title=f'Distribution by {gender_col}')
                 st.plotly_chart(fig, use_container_width=True)
             
@@ -249,13 +260,35 @@ if uploaded_file is not None:
                                    title=f'Distribution of {age_col}')
                 st.plotly_chart(fig, use_container_width=True)
             
+            # Water access analysis if available
+            if detected['water'] and detected['nutrition']:
+                st.markdown("#### 💧 Water Access Impact")
+                water_col = detected['water']
+                nutrition_col = detected['nutrition']
+                
+                # Calculate malnutrition rate by water access
+                if df_clean[nutrition_col].dtype == 'object':
+                    water_impact = df_clean.groupby(water_col)[nutrition_col].apply(
+                        lambda x: (x.astype(str).str.lower().str.contains('malnourished|malnutrition', na=False).sum() / len(x)) * 100
+                    ).reset_index()
+                else:
+                    water_impact = df_clean.groupby(water_col)[nutrition_col].mean().reset_index()
+                
+                water_impact.columns = [water_col, 'Malnutrition Rate']
+                
+                fig = px.bar(water_impact, x=water_col, y='Malnutrition Rate',
+                             title=f'Impact of {water_col} on Nutrition',
+                             color='Malnutrition Rate', color_continuous_scale='viridis')
+                st.plotly_chart(fig, use_container_width=True)
+            
             # If no specific columns found, show general overview
-            if not any([detected['district'], detected['gender'], detected['age']]):
+            if not any([detected['district'], detected['gender'], detected['age'], detected['water']]):
                 st.markdown("#### 📈 General Data Overview")
                 
                 # Show numeric columns summary
                 numeric_df = df_clean.select_dtypes(include=['number'])
                 if not numeric_df.empty:
+                    st.markdown("**Numeric Columns Summary:**")
                     st.dataframe(numeric_df.describe())
                 
                 # Show top categories for text columns
@@ -275,9 +308,9 @@ if uploaded_file is not None:
                 if malnutrition_rate is not None:
                     sdg_data.append({
                         'Indicator': 'Malnutrition (SDG 2.2)',
-                        'Current': malnutrition_rate,
+                        'Current': round(malnutrition_rate, 1),
                         'SDG Target': 5,
-                        'Gap': malnutrition_rate - 5
+                        'Gap': round(malnutrition_rate - 5, 1)
                     })
                 
                 if detected['water']:
@@ -289,9 +322,9 @@ if uploaded_file is not None:
                     
                     sdg_data.append({
                         'Indicator': 'Clean Water (SDG 6)',
-                        'Current': water_access,
+                        'Current': round(water_access, 1),
                         'SDG Target': 100,
-                        'Gap': 100 - water_access
+                        'Gap': round(100 - water_access, 1)
                     })
                 
                 if detected['gender']:
@@ -307,9 +340,9 @@ if uploaded_file is not None:
                     
                     sdg_data.append({
                         'Indicator': 'Gender Balance (SDG 5)',
-                        'Current': female_pct,
+                        'Current': round(female_pct, 1),
                         'SDG Target': 50,
-                        'Gap': abs(female_pct - 50)
+                        'Gap': round(abs(female_pct - 50), 1)
                     })
                 
                 if sdg_data:
@@ -326,9 +359,9 @@ if uploaded_file is not None:
                                      yaxis_title='Percentage (%)')
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("No SDG-related columns detected in your data.")
+                    st.info("ℹ️ No SDG-related columns detected in your data. Upgrade to Premium for full SDG tracking.")
             else:
-                st.warning("⚠️ SDG Goal analysis is available in Premium plan")
+                st.warning("⚠️ SDG Goal analysis is available in Premium plan (MWK 40,000/month)")
         
         with tab3:
             if plan == "Premium - MWK 40,000/mo":
@@ -338,12 +371,16 @@ if uploaded_file is not None:
                 target_pop = malnourished if malnourished else int(total * 0.3)  # Assume 30% if unknown
                 num_regions = len(df_clean[detected['district']].unique()) if detected['district'] else 1
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     st.metric("Target Population", f"{target_pop:,}")
                 with col2:
                     st.metric("Regions", num_regions)
+                with col3:
+                    st.metric("Total Population", total)
+                
+                st.markdown("---")
                 
                 # Calculate scenarios
                 basic_cost = target_pop * 45000
@@ -351,22 +388,38 @@ if uploaded_file is not None:
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Basic Intervention", f"MWK {basic_cost:,.0f}")
+                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                    st.markdown("**Basic Intervention**")
+                    st.markdown(f"<h2>MWK {basic_cost:,.0f}</h2>", unsafe_allow_html=True)
+                    st.markdown(f"${basic_cost/1700:,.0f} USD")
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
                 with col2:
-                    st.metric("Comprehensive", f"MWK {comprehensive_cost:,.0f}", 
-                             delta=f"Save MWK {basic_cost - comprehensive_cost:,.0f}")
+                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                    st.markdown("**Comprehensive**")
+                    st.markdown(f"<h2 class='success'>MWK {comprehensive_cost:,.0f}</h2>", unsafe_allow_html=True)
+                    st.markdown(f"${comprehensive_cost/1700:,.0f} USD")
+                    st.markdown(f"💰 **Save:** MWK {basic_cost - comprehensive_cost:,.0f}")
+                    st.markdown('</div>', unsafe_allow_html=True)
                 
                 if target_pop > 0:
                     roi = ((target_pop * 0.6 * 45000) / comprehensive_cost) * 100
-                    st.metric("ROI", f"{roi:.1f}%")
+                    st.metric("Projected ROI", f"{roi:.1f}%", 
+                             help="Return on Investment based on prevented cases")
+                    
+                    st.markdown("""
+                    **📈 Expected Impact:**
+                    - Cases prevented: {:.0f}
+                    - Cost per case prevented: MWK {:,.0f}
+                    """.format(target_pop * 0.6, comprehensive_cost / (target_pop * 1.6)))
             else:
-                st.warning("⚠️ Budget calculator is available in Premium plan")
+                st.warning("⚠️ Budget calculator is available in Premium plan (MWK 40,000/month)")
         
         with tab4:
             st.markdown("### 📄 Generate Reports")
             if plan != "Free Trial":
-                if st.button("📥 Generate Sample Report"):
-                    st.success("✅ Report ready! (Download in production)")
+                if st.button("📥 Generate Report"):
+                    st.success("✅ Report generated successfully!")
                     
                     # Create summary text
                     summary = f"""
@@ -376,12 +429,21 @@ File: {uploaded_file.name}
 Total Records: {total}
 Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
 
-COLUMNS FOUND:
-{', '.join(df.columns.tolist())}
-
-DATA PREVIEW:
-{df.head(10).to_string()}
-                    """
+KEY METRICS:
+"""
+                    if malnutrition_rate is not None:
+                        summary += f"Malnutrition Rate: {malnutrition_rate:.1f}%\n"
+                        summary += f"Malnourished Children: {malnourished}\n"
+                    
+                    if detected['district']:
+                        summary += f"Districts Covered: {len(df_clean[detected['district']].unique())}\n"
+                    
+                    summary += f"\nCOLUMNS FOUND:\n"
+                    for col in df.columns:
+                        summary += f"  - {col}\n"
+                    
+                    summary += f"\nDATA PREVIEW:\n"
+                    summary += df.head(10).to_string()
                     
                     # Download as CSV
                     csv = df_clean.to_csv(index=False)
@@ -391,10 +453,24 @@ DATA PREVIEW:
                     
                     # Download summary as txt
                     b64_summary = base64.b64encode(summary.encode()).decode()
-                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt">📥 Download Summary (TXT)</a>'
+                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt">📥 Download Summary Report (TXT)</a>'
                     st.markdown(href_summary, unsafe_allow_html=True)
+                    
+                    # Try to create Excel if possible
+                    try:
+                        output = BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df_clean.to_excel(writer, sheet_name='Data', index=False)
+                            if detected['district'] and detected['nutrition']:
+                                district_data.to_excel(writer, sheet_name='District Analysis', index=False)
+                        excel_data = output.getvalue()
+                        b64_excel = base64.b64encode(excel_data).decode()
+                        href_excel = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}" download="full_analysis.xlsx">📥 Download Excel Report</a>'
+                        st.markdown(href_excel, unsafe_allow_html=True)
+                    except:
+                        pass
             else:
-                st.info("📌 Reports available in Basic and Premium plans")
+                st.info("📌 Reports are available in Basic and Premium plans")
     
     except Exception as e:
         st.error(f"Error reading file: {e}")
