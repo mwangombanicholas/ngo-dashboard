@@ -484,3 +484,4 @@ KEY METRICS:
 # Footer
 st.markdown("---")
 st.markdown("© 2024 Impact Data Dashboard | Built for NGOs | Works with ANY CSV/Excel file")
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | 📱 WhatsApp: +265 886867758</div>", unsafe_allow_html=True)
