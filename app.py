@@ -77,7 +77,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 📞 Contact")
-    st.markdown("Email: your-email@example.com")
+    st.markdown("Email: mwangomanicholas@gmail.com")
 
 # Main content
 uploaded_file = st.file_uploader("📤 Upload your survey data (CSV or Excel)", type=['csv', 'xlsx'])
