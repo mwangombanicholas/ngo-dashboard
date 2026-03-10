@@ -281,8 +281,12 @@ if uploaded_file is not None:
                              color='Malnutrition Rate', color_continuous_scale='viridis')
                 st.plotly_chart(fig, use_container_width=True)
             
-            # If no specific columns found, show general overview
-            if not any([detected['district'], detected['gender'], detected['age'], detected['water']]):
+            # If specific columns were found, show data preview
+            if any([detected['district'], detected['gender'], detected['age'], detected['water'], detected['nutrition']]):
+                st.markdown("#### 📋 Data Preview")
+                st.dataframe(df_clean.head(10))
+            else:
+                # If no specific columns found, show general overview
                 st.markdown("#### 📈 General Data Overview")
                 
                 # Show numeric columns summary
@@ -407,11 +411,11 @@ if uploaded_file is not None:
                     st.metric("Projected ROI", f"{roi:.1f}%", 
                              help="Return on Investment based on prevented cases")
                     
-                    st.markdown("""
+                    st.markdown(f"""
                     **📈 Expected Impact:**
-                    - Cases prevented: {:.0f}
-                    - Cost per case prevented: MWK {:,.0f}
-                    """.format(target_pop * 0.6, comprehensive_cost / (target_pop * 1.6)))
+                    - Cases prevented: {int(target_pop * 0.6)}
+                    - Cost per case prevented: MWK {int(comprehensive_cost / (target_pop * 1.6)):,}
+                    """)
             else:
                 st.warning("⚠️ Budget calculator is available in Premium plan (MWK 40,000/month)")
         
@@ -462,7 +466,8 @@ KEY METRICS:
                         with pd.ExcelWriter(output, engine='openpyxl') as writer:
                             df_clean.to_excel(writer, sheet_name='Data', index=False)
                             if detected['district'] and detected['nutrition']:
-                                district_data.to_excel(writer, sheet_name='District Analysis', index=False)
+                                if 'district_data' in locals():
+                                    district_data.to_excel(writer, sheet_name='District Analysis', index=False)
                         excel_data = output.getvalue()
                         b64_excel = base64.b64encode(excel_data).decode()
                         href_excel = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}" download="full_analysis.xlsx">📥 Download Excel Report</a>'
