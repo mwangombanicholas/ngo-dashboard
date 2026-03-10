@@ -53,7 +53,7 @@ with st.sidebar:
     
     plan = st.radio(
         "Select Plan",
-        ["Free Trial", "Basic - MWK 10,000/mo", "Premium - MWK 40,000/mo"]
+        ["Free Trial", "Basic - MWK 50,000/mo", "Premium - MWK 100,000/mo"]
     )
     
     if plan == "Free Trial":
@@ -85,7 +85,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📞 Contact")
     st.markdown("Email: mwangomanicholas@gmail.com")
-    st.markdown("📱 WhatsApp: +265 [Your Number]")
+    st.markdown("📱 WhatsApp: +265 [886867758]")
 
 # Function to find matching columns (improved)
 def find_column(df, possible_names):
