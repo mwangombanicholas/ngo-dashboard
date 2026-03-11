@@ -11,9 +11,56 @@ import re
 # Page config
 st.set_page_config(page_title="NGO Impact Dashboard", page_icon="📊", layout="wide")
 
-# Custom CSS
+# Mobile-responsive CSS
 st.markdown("""
 <style>
+    /* Make everything mobile friendly */
+    @media (max-width: 768px) {
+        /* Fix sidebar on mobile */
+        .css-1d391kg {
+            padding: 0.5rem !important;
+            width: 100% !important;
+        }
+        
+        /* Make radio buttons stack vertically */
+        .stRadio > div {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+        
+        /* Make tabs scrollable horizontally */
+        .stTabs [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            gap: 1rem !important;
+            padding-bottom: 0.5rem !important;
+        }
+        
+        /* Make metric cards full width */
+        .css-1r6slb0 {
+            width: 100% !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* Adjust font sizes */
+        .main-header {
+            font-size: 2rem !important;
+        }
+        
+        /* Make buttons easier to tap */
+        .stButton button {
+            min-height: 44px !important;
+            font-size: 16px !important;
+        }
+        
+        /* Improve spacing */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+    }
+    
+    /* Desktop styles */
     .main-header {
         font-size: 3rem;
         color: #2c3e50;
@@ -40,53 +87,89 @@ st.markdown("""
         border-radius: 5px;
         border-left: 5px solid #0288d1;
     }
+    /* Mobile notice */
+    .mobile-notice {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 0.5rem;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+    @media (max-width: 768px) {
+        .mobile-notice {
+            display: block;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Mobile helper notice
+st.markdown('<div class="mobile-notice">📱 Tap the ☰ icon at top-left to expand menu</div>', unsafe_allow_html=True)
 
 # Header
 st.markdown('<h1 class="main-header">🌍 NGO Impact Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("### 🎯 Turn your survey data into donor-ready reports in seconds")
 
+# Quick pricing display for mobile users (visible without sidebar)
+with st.expander("💰 View Pricing Plans (tap to expand)", expanded=False):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.info("**Free Trial**\n\n✓ Basic charts\n✓ 3 reports/month\n✗ No PDF export")
+    with col2:
+        st.success("**Basic**\n\nMWK 50,000/mo\n✓ All charts\n✓ PDF reports\n✓ Excel export")
+    with col3:
+        st.success("**Premium**\n\nMWK 100,000/mo\n✓ SDG comparison\n✓ Budget calculator\n✓ ROI analysis")
+
 # Sidebar - Pricing
 with st.sidebar:
     st.markdown("## 💎 Pricing Plans")
+    st.markdown("*Select your plan below:*")
     
+    # Better mobile-friendly radio buttons
     plan = st.radio(
-        "Select Plan",
-        ["Free Trial", "Basic - MWK 50,000/mo", "Premium - MWK 100,000/mo"]
+        "Choose Plan",
+        ["Free Trial", "Basic - MWK 50,000/mo", "Premium - MWK 100,000/mo"],
+        label_visibility="collapsed"
     )
     
+    # Show plan details based on selection
     if plan == "Free Trial":
         st.info("""
-        **Includes:**
-        ✓ Basic charts
-        ✓ 3 reports/month
-        × No PDF export
-        × No budget calculator
+        **✓ Free Trial Includes:**
+        • Basic charts
+        • 3 reports/month
+        • Data preview
         """)
     elif plan == "Basic - MWK 50,000/mo":
         st.success("""
-        **Includes:**
-        ✓ All charts
-        ✓ PDF reports
-        ✓ Excel export
-        ✓ Email support
+        **✓ Basic Includes:**
+        • All charts
+        • PDF reports
+        • Excel export
+        • Email support
         """)
     else:
         st.success("""
-        **Includes:**
-        ✓ Everything in Basic
-        ✓ SDG comparison
-        ✓ Budget calculator
-        ✓ ROI analysis
-        ✓ Priority support
+        **✓ Premium Includes:**
+        • Everything in Basic
+        • SDG comparison
+        • Budget calculator
+        • ROI analysis
+        • Priority support
         """)
     
     st.markdown("---")
     st.markdown("### 📞 Contact")
-    st.markdown("Email: mwangomanicholas@gmail.com")
-    st.markdown("📱 WhatsApp: +265 886867758")
-    st.markdown("🌍 Built in Malawi 🇲🇼")
+    st.markdown("**Email:** mwangomanicholas@gmail.com")
+    st.markdown("**WhatsApp:** +265 886867758")
+    st.markdown("🌍 **Built in Malawi** 🇲🇼")
+    
+    # Mobile help text
+    st.markdown("---")
+    st.markdown("📱 **Mobile users:** Tap outside to close menu")
 
 # Function to find matching columns
 def find_column(df, possible_names):
@@ -174,33 +257,20 @@ if uploaded_file is not None:
                 malnutrition_rate = df_clean[nutrition_col].mean()
                 malnourished = (df_clean[nutrition_col] > df_clean[nutrition_col].median()).sum()
         
-        # Key metrics display
+        # Key metrics display - mobile responsive grid
         st.markdown("## 📊 Key Metrics")
         cols = st.columns(4)
         
-        with cols[0]:
-            st.metric("Total Records", f"{total:,}")
+        metrics_data = [
+            ("Total Records", f"{total:,}"),
+            ("Malnutrition Rate", f"{malnutrition_rate:.1f}%" if malnutrition_rate is not None else f"{len(df.columns)} Columns"),
+            ("Malnourished", f"{malnourished:,}" if malnourished is not None else f"{len(df_clean.select_dtypes(include=['number']).columns)} Numeric"),
+            ("Districts", f"{len(df_clean[detected['district']].unique())}" if detected['district'] else f"{len(df_clean.select_dtypes(include=['object']).columns)} Categories")
+        ]
         
-        with cols[1]:
-            if malnutrition_rate is not None:
-                st.metric("Malnutrition Rate", f"{malnutrition_rate:.1f}%")
-            else:
-                st.metric("Total Columns", len(df.columns))
-        
-        with cols[2]:
-            if malnourished is not None:
-                st.metric("Malnourished", f"{malnourished:,}")
-            else:
-                numeric_cols = len(df_clean.select_dtypes(include=['number']).columns)
-                st.metric("Numeric Columns", numeric_cols)
-        
-        with cols[3]:
-            if detected['district']:
-                districts = len(df_clean[detected['district']].unique())
-                st.metric("Districts/Regions", districts)
-            else:
-                text_cols = len(df_clean.select_dtypes(include=['object']).columns)
-                st.metric("Categories", text_cols)
+        for i, (label, value) in enumerate(metrics_data):
+            with cols[i]:
+                st.metric(label, value)
         
         # Create tabs for different views
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Analysis", "🎯 SDG Goals", "💰 Budget", "📄 Reports"])
@@ -453,12 +523,12 @@ KEY METRICS:
                     # Download as CSV
                     csv = df_clean.to_csv(index=False)
                     b64 = base64.b64encode(csv.encode()).decode()
-                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">📥 Download Cleaned Data (CSV)</a>'
+                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv" style="background-color: #28a745; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Cleaned Data (CSV)</a>'
                     st.markdown(href, unsafe_allow_html=True)
                     
                     # Download summary as txt
                     b64_summary = base64.b64encode(summary.encode()).decode()
-                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt">📥 Download Summary Report (TXT)</a>'
+                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt" style="background-color: #17a2b8; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Summary Report (TXT)</a>'
                     st.markdown(href_summary, unsafe_allow_html=True)
                     
                     # Try to create Excel if possible
@@ -471,7 +541,7 @@ KEY METRICS:
                                     district_data.to_excel(writer, sheet_name='District Analysis', index=False)
                         excel_data = output.getvalue()
                         b64_excel = base64.b64encode(excel_data).decode()
-                        href_excel = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}" download="full_analysis.xlsx">📥 Download Excel Report</a>'
+                        href_excel = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}" download="full_analysis.xlsx" style="background-color: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Excel Report</a>'
                         st.markdown(href_excel, unsafe_allow_html=True)
                     except:
                         pass
@@ -484,5 +554,12 @@ KEY METRICS:
 
 # Footer
 st.markdown("---")
-st.markdown("© 2024 Impact Data Dashboard | Built for NGOs | Works with ANY CSV/Excel file")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | 📱 WhatsApp: +265 886867758 | 📧 mwangomanicholas@gmail.com</div>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("© 2024 Impact Data Dashboard")
+with col2:
+    st.markdown("🇲🇼 **Built in Malawi**")
+with col3:
+    st.markdown("📱 **WhatsApp:** +265 886867758")
+
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> | Works on ALL devices</div>", unsafe_allow_html=True)
