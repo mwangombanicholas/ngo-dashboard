@@ -11,165 +11,203 @@ import re
 # Page config
 st.set_page_config(page_title="NGO Impact Dashboard", page_icon="📊", layout="wide")
 
-# Mobile-responsive CSS
+# Mobile-optimized CSS
 st.markdown("""
 <style>
-    /* Make everything mobile friendly */
+    /* Mobile first design */
     @media (max-width: 768px) {
-        /* Fix sidebar on mobile */
-        .css-1d391kg {
-            padding: 0.5rem !important;
+        /* Make everything bigger for touch */
+        .stButton button {
+            min-height: 48px !important;
+            font-size: 16px !important;
             width: 100% !important;
         }
         
-        /* Make radio buttons stack vertically */
-        .stRadio > div {
+        /* Make radio buttons easy to tap */
+        .stRadio div[role="radiogroup"] {
             flex-direction: column !important;
-            gap: 0.5rem !important;
+            gap: 10px !important;
         }
         
-        /* Make tabs scrollable horizontally */
+        .stRadio label {
+            padding: 12px !important;
+            background-color: #f0f2f6;
+            border-radius: 8px;
+            width: 100%;
+            margin: 0 !important;
+        }
+        
+        /* Make tabs scrollable */
         .stTabs [data-baseweb="tab-list"] {
             overflow-x: auto !important;
             flex-wrap: nowrap !important;
-            gap: 1rem !important;
-            padding-bottom: 0.5rem !important;
+            gap: 15px !important;
+            padding-bottom: 10px !important;
         }
         
-        /* Make metric cards full width */
+        /* Make metric cards stack */
         .css-1r6slb0 {
             width: 100% !important;
-            margin-bottom: 0.5rem !important;
+            margin-bottom: 10px !important;
         }
         
-        /* Adjust font sizes */
+        /* Increase font sizes */
         .main-header {
             font-size: 2rem !important;
         }
         
-        /* Make buttons easier to tap */
-        .stButton button {
-            min-height: 44px !important;
-            font-size: 16px !important;
+        h3 {
+            font-size: 1.3rem !important;
         }
         
-        /* Improve spacing */
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
+        /* Make expander easier to tap */
+        .streamlit-expanderHeader {
+            font-size: 1.1rem !important;
+            padding: 15px !important;
+        }
+        
+        /* Hide sidebar on mobile by default */
+        .css-1d391kg {
+            display: none !important;
+        }
+        
+        /* Show mobile menu button */
+        .mobile-menu-btn {
+            display: block !important;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
     }
     
     /* Desktop styles */
+    @media (min-width: 769px) {
+        .mobile-menu-btn {
+            display: none !important;
+        }
+    }
+    
     .main-header {
         font-size: 3rem;
         color: #2c3e50;
         text-align: center;
         margin-bottom: 2rem;
     }
-    .metric-card {
+    
+    .pricing-card {
         background-color: #f8f9fa;
         padding: 1.5rem;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        height: 100%;
     }
-    .highlight {
-        color: #e74c3c;
-        font-weight: bold;
+    
+    .selected-plan {
+        background-color: #d4edda;
+        border: 2px solid #28a745;
     }
+    
     .success {
         color: #27ae60;
         font-weight: bold;
     }
-    .info-box {
-        background-color: #e1f5fe;
-        padding: 1rem;
-        border-radius: 5px;
-        border-left: 5px solid #0288d1;
-    }
-    /* Mobile notice */
-    .mobile-notice {
+    
+    .warning-box {
         background-color: #fff3cd;
         color: #856404;
-        padding: 0.5rem;
+        padding: 1rem;
         border-radius: 5px;
-        text-align: center;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-        display: none;
-    }
-    @media (max-width: 768px) {
-        .mobile-notice {
-            display: block;
-        }
+        border-left: 5px solid #ffc107;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# Mobile helper notice
-st.markdown('<div class="mobile-notice">📱 Tap the ☰ icon at top-left to expand menu</div>', unsafe_allow_html=True)
 
 # Header
 st.markdown('<h1 class="main-header">🌍 NGO Impact Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("### 🎯 Turn your survey data into donor-ready reports in seconds")
 
-# Quick pricing display for mobile users (visible without sidebar)
-with st.expander("💰 View Pricing Plans (tap to expand)", expanded=False):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.info("**Free Trial**\n\n✓ Basic charts\n✓ 3 reports/month\n✗ No PDF export")
-    with col2:
-        st.success("**Basic**\n\nMWK 50,000/mo\n✓ All charts\n✓ PDF reports\n✓ Excel export")
-    with col3:
-        st.success("**Premium**\n\nMWK 100,000/mo\n✓ SDG comparison\n✓ Budget calculator\n✓ ROI analysis")
+# Mobile menu button (just for show - actual functionality is now in main area)
+st.markdown('<button class="mobile-menu-btn" onclick="alert(\'Select your plan from the buttons above!\')">📱 Menu</button>', unsafe_allow_html=True)
 
-# Sidebar - Pricing
-with st.sidebar:
-    st.markdown("## 💎 Pricing Plans")
-    st.markdown("*Select your plan below:*")
-    
-    # Better mobile-friendly radio buttons
-    plan = st.radio(
-        "Choose Plan",
-        ["Free Trial", "Basic - MWK 50,000/mo", "Premium - MWK 100,000/mo"],
-        label_visibility="collapsed"
-    )
-    
-    # Show plan details based on selection
-    if plan == "Free Trial":
-        st.info("""
-        **✓ Free Trial Includes:**
-        • Basic charts
-        • 3 reports/month
-        • Data preview
-        """)
-    elif plan == "Basic - MWK 50,000/mo":
-        st.success("""
-        **✓ Basic Includes:**
-        • All charts
-        • PDF reports
-        • Excel export
-        • Email support
-        """)
-    else:
-        st.success("""
-        **✓ Premium Includes:**
-        • Everything in Basic
-        • SDG comparison
-        • Budget calculator
-        • ROI analysis
-        • Priority support
-        """)
-    
-    st.markdown("---")
-    st.markdown("### 📞 Contact")
-    st.markdown("**Email:** mwangomanicholas@gmail.com")
-    st.markdown("**WhatsApp:** +265 886867758")
-    st.markdown("🌍 **Built in Malawi** 🇲🇼")
-    
-    # Mobile help text
-    st.markdown("---")
-    st.markdown("📱 **Mobile users:** Tap outside to close menu")
+# MAIN PLAN SELECTION - Now visible on ALL devices!
+st.markdown("## 💎 Choose Your Plan")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    st.markdown("### 🆓 Free Trial")
+    st.markdown("**MWK 0**")
+    st.markdown("""
+    ✓ Basic charts
+    ✓ 3 reports/month
+    ✗ No PDF export
+    ✗ No budget calculator
+    """)
+    if st.button("Select Free Trial", key="free_btn"):
+        st.session_state.plan = "Free Trial"
+        st.success("Free Trial selected!")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col2:
+    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    st.markdown("### 📊 Basic")
+    st.markdown("**MWK 50,000/month**")
+    st.markdown("""
+    ✓ All charts
+    ✓ PDF reports
+    ✓ Excel export
+    ✓ Email support
+    """)
+    if st.button("Select Basic", key="basic_btn"):
+        st.session_state.plan = "Basic - MWK 50,000/mo"
+        st.success("Basic plan selected!")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col3:
+    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    st.markdown("### ⭐ Premium")
+    st.markdown("**MWK 100,000/month**")
+    st.markdown("""
+    ✓ Everything in Basic
+    ✓ SDG comparison
+    ✓ Budget calculator
+    ✓ ROI analysis
+    ✓ Priority support
+    """)
+    if st.button("Select Premium", key="premium_btn"):
+        st.session_state.plan = "Premium - MWK 100,000/mo"
+        st.success("Premium plan selected!")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Get current plan from session state
+if 'plan' not in st.session_state:
+    st.session_state.plan = "Free Trial"
+
+plan = st.session_state.plan
+st.caption(f"Current selected plan: **{plan}**")
+
+# Contact info in a nice row
+st.markdown("---")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("📧 **Email:** mwangomanicholas@gmail.com")
+with col2:
+    st.markdown("📱 **WhatsApp:** +265 886867758")
+with col3:
+    st.markdown("🇲🇼 **Built in Malawi**")
+
+st.markdown("---")
 
 # Function to find matching columns
 def find_column(df, possible_names):
@@ -257,20 +295,33 @@ if uploaded_file is not None:
                 malnutrition_rate = df_clean[nutrition_col].mean()
                 malnourished = (df_clean[nutrition_col] > df_clean[nutrition_col].median()).sum()
         
-        # Key metrics display - mobile responsive grid
+        # Key metrics display
         st.markdown("## 📊 Key Metrics")
         cols = st.columns(4)
         
-        metrics_data = [
-            ("Total Records", f"{total:,}"),
-            ("Malnutrition Rate", f"{malnutrition_rate:.1f}%" if malnutrition_rate is not None else f"{len(df.columns)} Columns"),
-            ("Malnourished", f"{malnourished:,}" if malnourished is not None else f"{len(df_clean.select_dtypes(include=['number']).columns)} Numeric"),
-            ("Districts", f"{len(df_clean[detected['district']].unique())}" if detected['district'] else f"{len(df_clean.select_dtypes(include=['object']).columns)} Categories")
-        ]
+        with cols[0]:
+            st.metric("Total Records", f"{total:,}")
         
-        for i, (label, value) in enumerate(metrics_data):
-            with cols[i]:
-                st.metric(label, value)
+        with cols[1]:
+            if malnutrition_rate is not None:
+                st.metric("Malnutrition Rate", f"{malnutrition_rate:.1f}%")
+            else:
+                st.metric("Total Columns", len(df.columns))
+        
+        with cols[2]:
+            if malnourished is not None:
+                st.metric("Malnourished", f"{malnourished:,}")
+            else:
+                numeric_cols = len(df_clean.select_dtypes(include=['number']).columns)
+                st.metric("Numeric Columns", numeric_cols)
+        
+        with cols[3]:
+            if detected['district']:
+                districts = len(df_clean[detected['district']].unique())
+                st.metric("Districts/Regions", districts)
+            else:
+                text_cols = len(df_clean.select_dtypes(include=['object']).columns)
+                st.metric("Categories", text_cols)
         
         # Create tabs for different views
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Analysis", "🎯 SDG Goals", "💰 Budget", "📄 Reports"])
@@ -434,9 +485,10 @@ if uploaded_file is not None:
                                      yaxis_title='Percentage (%)')
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("ℹ️ No SDG-related columns detected in your data. Upgrade to Premium for full SDG tracking.")
+                    st.info("ℹ️ No SDG-related columns detected in your data.")
             else:
-                st.warning("⚠️ SDG Goal analysis is available in Premium plan (MWK 100,000/month)")
+                st.warning("⚠️ SDG Goal analysis is available in **Premium Plan** (MWK 100,000/month)")
+                st.info("👆 Select Premium from the buttons above to access this feature")
         
         with tab3:
             if plan == "Premium - MWK 100,000/mo":
@@ -463,37 +515,22 @@ if uploaded_file is not None:
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                    st.markdown("**Basic Intervention**")
-                    st.markdown(f"<h2>MWK {basic_cost:,.0f}</h2>", unsafe_allow_html=True)
-                    st.markdown(f"${basic_cost/1700:,.0f} USD")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
+                    st.metric("Basic Intervention", f"MWK {basic_cost:,.0f}")
                 with col2:
-                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                    st.markdown("**Comprehensive**")
-                    st.markdown(f"<h2 class='success'>MWK {comprehensive_cost:,.0f}</h2>", unsafe_allow_html=True)
-                    st.markdown(f"${comprehensive_cost/1700:,.0f} USD")
-                    st.markdown(f"💰 **Save:** MWK {basic_cost - comprehensive_cost:,.0f}")
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.metric("Comprehensive", f"MWK {comprehensive_cost:,.0f}", 
+                             delta=f"Save MWK {basic_cost - comprehensive_cost:,.0f}")
                 
                 if target_pop > 0:
                     roi = ((target_pop * 0.6 * 45000) / comprehensive_cost) * 100
-                    st.metric("Projected ROI", f"{roi:.1f}%", 
-                             help="Return on Investment based on prevented cases")
-                    
-                    st.markdown(f"""
-                    **📈 Expected Impact:**
-                    - Cases prevented: {int(target_pop * 0.6)}
-                    - Cost per case prevented: MWK {int(comprehensive_cost / (target_pop * 1.6)):,}
-                    """)
+                    st.metric("Projected ROI", f"{roi:.1f}%")
             else:
-                st.warning("⚠️ Budget calculator is available in Premium plan (MWK 100,000/month)")
+                st.warning("⚠️ Budget calculator is available in **Premium Plan** (MWK 100,000/month)")
+                st.info("👆 Select Premium from the buttons above to access this feature")
         
         with tab4:
             st.markdown("### 📄 Generate Reports")
             if plan != "Free Trial":
-                if st.button("📥 Generate Report"):
+                if st.button("📥 Generate Report", use_container_width=True):
                     st.success("✅ Report generated successfully!")
                     
                     # Create summary text
@@ -503,6 +540,7 @@ NGO IMPACT DASHBOARD - DATA SUMMARY
 File: {uploaded_file.name}
 Total Records: {total}
 Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+Plan: {plan}
 
 KEY METRICS:
 """
@@ -523,30 +561,16 @@ KEY METRICS:
                     # Download as CSV
                     csv = df_clean.to_csv(index=False)
                     b64 = base64.b64encode(csv.encode()).decode()
-                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv" style="background-color: #28a745; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Cleaned Data (CSV)</a>'
+                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv" style="background-color: #28a745; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; margin: 10px 0; font-size: 16px;">📥 Download Cleaned Data (CSV)</a>'
                     st.markdown(href, unsafe_allow_html=True)
                     
                     # Download summary as txt
                     b64_summary = base64.b64encode(summary.encode()).decode()
-                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt" style="background-color: #17a2b8; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Summary Report (TXT)</a>'
+                    href_summary = f'<a href="data:file/txt;base64,{b64_summary}" download="data_summary.txt" style="background-color: #17a2b8; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; margin: 10px 0; font-size: 16px;">📥 Download Summary Report (TXT)</a>'
                     st.markdown(href_summary, unsafe_allow_html=True)
-                    
-                    # Try to create Excel if possible
-                    try:
-                        output = BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            df_clean.to_excel(writer, sheet_name='Data', index=False)
-                            if detected['district'] and detected['nutrition']:
-                                if 'district_data' in locals():
-                                    district_data.to_excel(writer, sheet_name='District Analysis', index=False)
-                        excel_data = output.getvalue()
-                        b64_excel = base64.b64encode(excel_data).decode()
-                        href_excel = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}" download="full_analysis.xlsx" style="background-color: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none; display: inline-block; margin: 0.5rem 0;">📥 Download Excel Report</a>'
-                        st.markdown(href_excel, unsafe_allow_html=True)
-                    except:
-                        pass
             else:
-                st.info("📌 Reports are available in Basic and Premium plans")
+                st.info("📌 Reports are available in **Basic** and **Premium** plans")
+                st.info("👆 Select Basic or Premium from the buttons above to access reports")
     
     except Exception as e:
         st.error(f"Error reading file: {e}")
@@ -554,12 +578,4 @@ KEY METRICS:
 
 # Footer
 st.markdown("---")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.markdown("© 2024 Impact Data Dashboard")
-with col2:
-    st.markdown("🇲🇼 **Built in Malawi**")
-with col3:
-    st.markdown("📱 **WhatsApp:** +265 886867758")
-
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> | Works on ALL devices</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | Works on ALL devices | WhatsApp: +265 886867758</div>", unsafe_allow_html=True)
