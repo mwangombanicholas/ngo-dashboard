@@ -199,6 +199,33 @@ st.markdown("""
         border-left: 5px solid #0288d1;
         margin: 1rem 0;
     }
+    
+    .locked-feature {
+        background-color: #f8f9fa;
+        padding: 3rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 2px dashed #dc3545;
+        margin: 1rem 0;
+    }
+    
+    .locked-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .upgrade-btn {
+        background-color: #28a745;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-block;
+        margin: 1rem 0;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -410,7 +437,7 @@ with col2:
 st.markdown("---")
 
 # ============================================================================
-# PERSISTENT FILE UPLOAD - FIXED: File stays across plan changes
+# PERSISTENT FILE UPLOAD
 # ============================================================================
 
 # File uploader
@@ -544,13 +571,18 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
             text_cols = len(df_clean.select_dtypes(include=['object']).columns)
             st.metric("Categories", text_cols)
     
+    # ============================================================================
+    # TABS WITH DIFFERENT FEATURES PER PLAN
+    # ============================================================================
+    
     # Create tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📈 Analysis", "🎯 SDG Goals", "💰 Budget", "📄 Reports"])
     
     with tab1:
         st.markdown("### 📊 Data Analysis")
+        st.info("✅ Basic charts available in all plans")
         
-        # District analysis
+        # District analysis - available to all plans
         if detected['district'] and detected['nutrition']:
             st.markdown("#### 🏘️ District Analysis")
             district_col = detected['district']
@@ -568,7 +600,7 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                              color='Malnutrition Rate (%)', color_continuous_scale='reds')
                 st.plotly_chart(fig, use_container_width=True)
         
-        # Gender analysis
+        # Gender analysis - available to all plans
         if detected['gender']:
             st.markdown("#### 👥 Gender Distribution")
             gender_col = detected['gender']
@@ -579,7 +611,7 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                          title=f'Distribution by {gender_col}')
             st.plotly_chart(fig, use_container_width=True)
         
-        # Age analysis
+        # Age analysis - available to all plans
         if detected['age']:
             st.markdown("#### 📊 Age Distribution")
             age_col = detected['age']
@@ -587,7 +619,7 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                                title=f'Distribution of {age_col}')
             st.plotly_chart(fig, use_container_width=True)
         
-        # Water impact
+        # Water impact - available to all plans
         if detected['water'] and detected['nutrition']:
             st.markdown("#### 💧 Water Access Impact")
             water_col = detected['water']
@@ -604,13 +636,15 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                              color='Malnutrition Rate (%)', color_continuous_scale='viridis')
                 st.plotly_chart(fig, use_container_width=True)
         
-        # Always show data preview
+        # Data preview - available to all plans
         st.markdown("#### 📋 Data Preview")
         st.dataframe(df_clean.head(10))
     
     with tab2:
+        # SDG Goals - PREMIUM ONLY
         if st.session_state.plan in ["Premium - MWK 100,000/mo"] or st.session_state.is_premium:
             st.markdown("### 🎯 SDG Progress Report")
+            st.success("✅ Premium feature unlocked!")
             
             if malnutrition_rate is not None:
                 # Create SDG data
@@ -623,16 +657,16 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                     ],
                     'Current (%)': [
                         round(malnutrition_rate, 1), 
-                        65, 
-                        48, 
-                        60
+                        round(malnutrition_rate * 1.3, 1),
+                        round(malnutrition_rate * 0.8, 1),
+                        round(malnutrition_rate * 1.2, 1)
                     ],
                     'Target (%)': [5, 100, 50, 100],
                     'Gap': [
                         round(malnutrition_rate - 5, 1),
-                        35,
-                        2,
-                        40
+                        round(100 - (malnutrition_rate * 1.3), 1),
+                        round(50 - (malnutrition_rate * 0.8), 1),
+                        round(100 - (malnutrition_rate * 1.2), 1)
                     ]
                 })
                 
@@ -673,13 +707,27 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
             else:
                 st.info("ℹ️ Upload data with nutrition information to see SDG analysis")
         else:
-            st.warning("⚠️ SDG Goal analysis is available in **Premium Plan**")
+            # Show locked message for non-premium users
+            st.markdown("""
+            <div class="locked-feature">
+                <div class="locked-icon">🔒</div>
+                <h3>SDG Goals Analysis is Premium Feature</h3>
+                <p style="color: #666; margin: 1rem 0;">Upgrade to Premium to track your progress against UN Sustainable Development Goals</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.session_state.logged_in:
-                st.info("👆 Select Premium from the buttons above to unlock")
+                if st.button("⭐ Upgrade to Premium Now", key="upgrade_from_sdg", use_container_width=True):
+                    set_plan("Premium - MWK 100,000/mo")
+                    st.rerun()
+            else:
+                st.info("👆 Login first to upgrade")
     
     with tab3:
+        # Budget Calculator - PREMIUM ONLY
         if st.session_state.plan in ["Premium - MWK 100,000/mo"] or st.session_state.is_premium:
             st.markdown("### 💰 Budget Calculator")
+            st.success("✅ Premium feature unlocked!")
             
             # Calculate target population
             target_pop = malnourished if malnourished else int(total * 0.3)
@@ -732,13 +780,30 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                 with col3:
                     st.metric("ROI", f"{roi:.1f}%")
         else:
-            st.warning("⚠️ Budget calculator is available in **Premium Plan**")
+            # Show locked message for non-premium users
+            st.markdown("""
+            <div class="locked-feature">
+                <div class="locked-icon">🔒</div>
+                <h3>Budget Calculator is Premium Feature</h3>
+                <p style="color: #666; margin: 1rem 0;">Upgrade to Premium to calculate intervention costs and ROI</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.session_state.logged_in:
-                st.info("👆 Select Premium from the buttons above to unlock")
+                if st.button("⭐ Upgrade to Premium Now", key="upgrade_from_budget", use_container_width=True):
+                    set_plan("Premium - MWK 100,000/mo")
+                    st.rerun()
+            else:
+                st.info("👆 Login first to upgrade")
     
     with tab4:
+        # Reports - BASIC AND PREMIUM only (not Free Trial)
         if st.session_state.plan != "Free Trial":
             st.markdown("### 📄 Generate Reports")
+            if st.session_state.plan == "Premium - MWK 100,000/mo" or st.session_state.is_premium:
+                st.success("✅ Premium plan - Full report access")
+            else:
+                st.info("✅ Basic plan - Report access enabled")
             
             if st.button("📥 Generate Report", use_container_width=True, type="primary"):
                 # Format values for report
@@ -782,26 +847,8 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
                     href_txt = f'<a href="data:file/txt;base64,{b64_txt}" download="report.txt" style="background-color: #17a2b8; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; margin: 10px 0; font-weight: bold;">📥 Download Report (TXT)</a>'
                     st.markdown(href_txt, unsafe_allow_html=True)
         else:
-            st.info("📌 Reports are available in **Basic** and **Premium** plans")
-            if st.session_state.logged_in:
-                st.info("👆 Select Basic or Premium from the buttons above")
-
-# ============================================================================
-# FOOTER
-# ============================================================================
-
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.markdown("© 2024 Impact Data Dashboard")
-with col2:
-    st.markdown("🇲🇼 **Built in Malawi**")
-with col3:
-    st.markdown("📱 **WhatsApp:** +265 886867758")
-
-st.markdown(
-    "<div style='text-align: center; color: gray; padding: 1rem; font-size: 0.9rem;'>"
-    "Developed by <strong>Nicholas Mwangomba</strong> | Works on ALL devices"
-    "</div>", 
-    unsafe_allow_html=True
-)
+            # Show locked message for Free Trial users
+            st.markdown("""
+            <div class="locked-feature" style="border-color: #ffc107;">
+                <div class="locked-icon">📄</div>
+                <h
