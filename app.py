@@ -7,37 +7,117 @@ import base64
 from io import BytesIO
 import datetime
 import re
+import hashlib
+import hmac
+import time
 
 # Page config
 st.set_page_config(page_title="NGO Impact Dashboard", page_icon="📊", layout="wide")
 
-# Mobile-optimized CSS
+# ============================================================================
+# SIMPLE AUTHENTICATION SYSTEM
+# ============================================================================
+
+# Simple user database (username: password)
+# In production, use a real database
+USERS = {
+    "demo": "demo123",
+    "admin": "admin123",
+    "test": "test123"
+}
+
+# Premium users (users who have paid)
+PREMIUM_USERS = ["admin"]  # Usernames who have premium access
+
+# Session state initialization
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.is_premium = False
+
+def login_user(username, password):
+    """Verify login credentials"""
+    if username in USERS and USERS[username] == password:
+        st.session_state.logged_in = True
+        st.session_state.username = username
+        st.session_state.is_premium = username in PREMIUM_USERS
+        return True
+    return False
+
+def logout_user():
+    """Log out current user"""
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.is_premium = False
+
+def show_login_form():
+    """Display login form in sidebar"""
+    with st.sidebar:
+        st.markdown("### 🔐 Member Login")
+        
+        with st.expander("Login to your account", expanded=not st.session_state.logged_in):
+            username = st.text_input("Username", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Login", use_container_width=True):
+                    if login_user(username, password):
+                        st.success(f"Welcome {username}!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Invalid credentials")
+            
+            with col2:
+                if st.button("Guest Mode", use_container_width=True):
+                    st.session_state.logged_in = False
+                    st.rerun()
+            
+            st.caption("Demo: demo/demo123")
+
+def show_user_info():
+    """Show logged in user info in sidebar"""
+    with st.sidebar:
+        if st.session_state.logged_in:
+            # User info card
+            if st.session_state.is_premium:
+                st.markdown("""
+                <div style="background-color: #d4edda; padding: 1rem; border-radius: 10px; border-left: 5px solid #28a745;">
+                    <span style="font-size: 1.2rem;">⭐ PREMIUM MEMBER</span><br>
+                    <span style="font-size: 0.9rem;">All features unlocked</span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background-color: #e2f0f9; padding: 1rem; border-radius: 10px; border-left: 5px solid #17a2b8;">
+                    <span style="font-size: 1.2rem;">👤 Free Member</span><br>
+                    <span style="font-size: 0.9rem;">Upgrade for premium features</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown(f"**Username:** {st.session_state.username}")
+            
+            if st.button("🚪 Logout", use_container_width=True):
+                logout_user()
+                st.rerun()
+        else:
+            st.info("👋 Guest mode - Login for more features")
+
+# ============================================================================
+# MOBILE-RESPONSIVE CSS
+# ============================================================================
+
 st.markdown("""
 <style>
     /* Mobile first design */
     @media (max-width: 768px) {
-        /* Make everything bigger for touch */
         .stButton button {
             min-height: 48px !important;
             font-size: 16px !important;
             width: 100% !important;
         }
         
-        /* Make radio buttons easy to tap */
-        .stRadio div[role="radiogroup"] {
-            flex-direction: column !important;
-            gap: 10px !important;
-        }
-        
-        .stRadio label {
-            padding: 12px !important;
-            background-color: #f0f2f6;
-            border-radius: 8px;
-            width: 100%;
-            margin: 0 !important;
-        }
-        
-        /* Make tabs scrollable */
         .stTabs [data-baseweb="tab-list"] {
             overflow-x: auto !important;
             flex-wrap: nowrap !important;
@@ -45,53 +125,12 @@ st.markdown("""
             padding-bottom: 10px !important;
         }
         
-        /* Make metric cards stack */
-        .css-1r6slb0 {
-            width: 100% !important;
-            margin-bottom: 10px !important;
-        }
-        
-        /* Increase font sizes */
         .main-header {
             font-size: 2rem !important;
         }
         
         h3 {
             font-size: 1.3rem !important;
-        }
-        
-        /* Make expander easier to tap */
-        .streamlit-expanderHeader {
-            font-size: 1.1rem !important;
-            padding: 15px !important;
-        }
-        
-        /* Hide sidebar on mobile by default */
-        .css-1d391kg {
-            display: none !important;
-        }
-        
-        /* Show mobile menu button */
-        .mobile-menu-btn {
-            display: block !important;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 999;
-            background-color: #2c3e50;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 15px 25px;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-    }
-    
-    /* Desktop styles */
-    @media (min-width: 769px) {
-        .mobile-menu-btn {
-            display: none !important;
         }
     }
     
@@ -109,6 +148,12 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         text-align: center;
         height: 100%;
+        transition: transform 0.2s;
+    }
+    
+    .pricing-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
     
     .selected-plan {
@@ -129,17 +174,48 @@ st.markdown("""
         border-left: 5px solid #ffc107;
         margin: 1rem 0;
     }
+    
+    .premium-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
+# ============================================================================
+# HEADER
+# ============================================================================
+
 st.markdown('<h1 class="main-header">🌍 NGO Impact Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("### 🎯 Turn your survey data into donor-ready reports in seconds")
 
-# Mobile menu button (just for show - actual functionality is now in main area)
-st.markdown('<button class="mobile-menu-btn" onclick="alert(\'Select your plan from the buttons above!\')">📱 Menu</button>', unsafe_allow_html=True)
+# ============================================================================
+# SIDEBAR - AUTHENTICATION
+# ============================================================================
 
-# MAIN PLAN SELECTION - Now visible on ALL devices!
+with st.sidebar:
+    st.markdown("## 👥 Account")
+    
+    # Show login form or user info
+    if not st.session_state.logged_in:
+        show_login_form()
+    else:
+        show_user_info()
+    
+    st.markdown("---")
+    st.markdown("### 📞 Contact")
+    st.markdown("**Email:** mwangomanicholas@gmail.com")
+    st.markdown("**WhatsApp:** +265 886867758")
+    st.markdown("🇲🇼 **Built in Malawi**")
+
+# ============================================================================
+# MAIN PLAN SELECTION
+# ============================================================================
+
 st.markdown("## 💎 Choose Your Plan")
 
 col1, col2, col3 = st.columns(3)
@@ -154,7 +230,7 @@ with col1:
     ✗ No PDF export
     ✗ No budget calculator
     """)
-    if st.button("Select Free Trial", key="free_btn"):
+    if st.button("Select Free Trial", key="free_btn", use_container_width=True):
         st.session_state.plan = "Free Trial"
         st.success("Free Trial selected!")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -169,9 +245,16 @@ with col2:
     ✓ Excel export
     ✓ Email support
     """)
-    if st.button("Select Basic", key="basic_btn"):
-        st.session_state.plan = "Basic - MWK 50,000/mo"
-        st.success("Basic plan selected!")
+    
+    # Check if user can select Basic
+    if st.session_state.logged_in:
+        if st.button("Select Basic", key="basic_btn", use_container_width=True):
+            st.session_state.plan = "Basic - MWK 50,000/mo"
+            st.success("Basic plan selected!")
+    else:
+        st.button("Login to Select", key="basic_disabled", disabled=True, use_container_width=True)
+        st.caption("🔒 Login required")
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
@@ -185,10 +268,69 @@ with col3:
     ✓ ROI analysis
     ✓ Priority support
     """)
-    if st.button("Select Premium", key="premium_btn"):
-        st.session_state.plan = "Premium - MWK 100,000/mo"
-        st.success("Premium plan selected!")
+    
+    # Check if user can select Premium
+    if st.session_state.logged_in:
+        if st.session_state.is_premium:
+            if st.button("✅ Premium Active", key="premium_active", disabled=True, use_container_width=True):
+                pass
+            st.session_state.plan = "Premium - MWK 100,000/mo"
+        else:
+            if st.button("💰 Upgrade to Premium", key="premium_btn", use_container_width=True):
+                # Show payment modal
+                st.session_state.show_payment = True
+    else:
+        st.button("Login to Upgrade", key="premium_disabled", disabled=True, use_container_width=True)
+        st.caption("🔒 Login required")
+    
     st.markdown('</div>', unsafe_allow_html=True)
+
+# ============================================================================
+# PAYMENT MODAL
+# ============================================================================
+
+if 'show_payment' in st.session_state and st.session_state.show_payment:
+    with st.expander("💳 Complete Your Payment", expanded=True):
+        st.markdown("### Premium Plan - MWK 100,000/month")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            **Payment Options:**
+            - Airtel Money: +265 886867758
+            - Mpamba: +265 886867758
+            - Bank Transfer (upon request)
+            """)
+            
+            payment_method = st.selectbox("Select Payment Method", 
+                                          ["Airtel Money", "Mpamba", "Bank Transfer"])
+            
+            if st.button("✅ Confirm Payment", use_container_width=True):
+                # In production, this would integrate with payment API
+                st.success("Payment initiated! You'll receive confirmation via WhatsApp.")
+                st.info("📱 After payment, your account will be upgraded within 1 hour.")
+                
+                # For demo, instantly upgrade
+                if st.session_state.username == "demo":
+                    PREMIUM_USERS.append("demo")
+                    st.session_state.is_premium = True
+                    st.session_state.plan = "Premium - MWK 100,000/mo"
+                    st.balloons()
+                    st.rerun()
+        
+        with col2:
+            st.markdown("""
+            **What happens next:**
+            1. Complete payment via selected method
+            2. Send confirmation to WhatsApp
+            3. Account upgraded within 1 hour
+            4. Access all premium features
+            """)
+            
+            if st.button("❌ Cancel", use_container_width=True):
+                st.session_state.show_payment = False
+                st.rerun()
 
 # Get current plan from session state
 if 'plan' not in st.session_state:
@@ -197,19 +339,16 @@ if 'plan' not in st.session_state:
 plan = st.session_state.plan
 st.caption(f"Current selected plan: **{plan}**")
 
-# Contact info in a nice row
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.markdown("📧 **Email:** mwangomanicholas@gmail.com")
-with col2:
-    st.markdown("📱 **WhatsApp:** +265 886867758")
-with col3:
-    st.markdown("🇲🇼 **Built in Malawi**")
+# Show premium status for logged in users
+if st.session_state.logged_in and st.session_state.is_premium:
+    st.markdown('<span class="premium-badge">⭐ PREMIUM MEMBER</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
-# Function to find matching columns
+# ============================================================================
+# FUNCTION TO FIND MATCHING COLUMNS
+# ============================================================================
+
 def find_column(df, possible_names):
     """Find a column that matches any of the possible names"""
     df_cols_lower = {col.lower().strip(): col for col in df.columns}
@@ -232,7 +371,10 @@ def detect_columns(df):
     }
     return col_types
 
-# Main content
+# ============================================================================
+# MAIN CONTENT - FILE UPLOAD
+# ============================================================================
+
 uploaded_file = st.file_uploader("📤 Upload your survey data (CSV or Excel)", type=['csv', 'xlsx'])
 
 if uploaded_file is not None:
@@ -425,7 +567,7 @@ if uploaded_file is not None:
                         st.dataframe(text_df[col].value_counts().head(5))
         
         with tab2:
-            if plan == "Premium - MWK 100,000/mo":
+            if plan == "Premium - MWK 100,000/mo" or st.session_state.is_premium:
                 st.markdown("### 🎯 SDG Progress Report")
                 
                 # Create SDG metrics based on available data
@@ -488,10 +630,13 @@ if uploaded_file is not None:
                     st.info("ℹ️ No SDG-related columns detected in your data.")
             else:
                 st.warning("⚠️ SDG Goal analysis is available in **Premium Plan** (MWK 100,000/month)")
-                st.info("👆 Select Premium from the buttons above to access this feature")
+                if not st.session_state.logged_in:
+                    st.info("👆 Login to upgrade")
+                else:
+                    st.info("👆 Select Premium from the buttons above to access this feature")
         
         with tab3:
-            if plan == "Premium - MWK 100,000/mo":
+            if plan == "Premium - MWK 100,000/mo" or st.session_state.is_premium:
                 st.markdown("### 💰 Budget Calculator")
                 
                 # Use available data for budget calculations
@@ -525,11 +670,14 @@ if uploaded_file is not None:
                     st.metric("Projected ROI", f"{roi:.1f}%")
             else:
                 st.warning("⚠️ Budget calculator is available in **Premium Plan** (MWK 100,000/month)")
-                st.info("👆 Select Premium from the buttons above to access this feature")
+                if not st.session_state.logged_in:
+                    st.info("👆 Login to upgrade")
+                else:
+                    st.info("👆 Select Premium from the buttons above to access this feature")
         
         with tab4:
             st.markdown("### 📄 Generate Reports")
-            if plan != "Free Trial":
+            if plan != "Free Trial" or st.session_state.is_premium:
                 if st.button("📥 Generate Report", use_container_width=True):
                     st.success("✅ Report generated successfully!")
                     
@@ -541,6 +689,7 @@ File: {uploaded_file.name}
 Total Records: {total}
 Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
 Plan: {plan}
+User: {st.session_state.username if st.session_state.logged_in else 'Guest'}
 
 KEY METRICS:
 """
@@ -570,12 +719,26 @@ KEY METRICS:
                     st.markdown(href_summary, unsafe_allow_html=True)
             else:
                 st.info("📌 Reports are available in **Basic** and **Premium** plans")
-                st.info("👆 Select Basic or Premium from the buttons above to access reports")
+                if not st.session_state.logged_in:
+                    st.info("👆 Login to access reports")
+                else:
+                    st.info("👆 Select Basic or Premium from the buttons above")
     
     except Exception as e:
         st.error(f"Error reading file: {e}")
         st.info("Please make sure your file is a valid CSV or Excel file.")
 
-# Footer
+# ============================================================================
+# FOOTER
+# ============================================================================
+
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> 🇲🇼 | Works on ALL devices | WhatsApp: +265 886867758</div>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("© 2024 Impact Data Dashboard")
+with col2:
+    st.markdown("🇲🇼 **Built in Malawi**")
+with col3:
+    st.markdown("📱 **WhatsApp:** +265 886867758")
+
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.9rem; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> | Works on ALL devices</div>", unsafe_allow_html=True)
