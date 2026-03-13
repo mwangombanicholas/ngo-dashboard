@@ -6,7 +6,6 @@ from plotly.subplots import make_subplots
 import base64
 from io import BytesIO
 import datetime
-import re
 import time
 
 # Page config
@@ -26,7 +25,7 @@ USERS = {
 # Premium users (users who have paid)
 PREMIUM_USERS = ["admin"]
 
-# Initialize ALL session state variables at the start
+# Initialize ALL session state variables
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = None
@@ -35,21 +34,15 @@ if 'logged_in' not in st.session_state:
     st.session_state.show_payment = False
     st.session_state.plan_selected = False
     
+# File persistence variables - initialize all at once
 if 'uploaded_file_data' not in st.session_state:
     st.session_state.uploaded_file_data = None
-if 'uploaded_file_name' not in st.session_state:
     st.session_state.uploaded_file_name = None
-if 'df_raw' not in st.session_state:
     st.session_state.df_raw = None
-if 'df_clean' not in st.session_state:
     st.session_state.df_clean = None
-if 'file_loaded' not in st.session_state:
     st.session_state.file_loaded = False
-if 'detected_columns' not in st.session_state:
     st.session_state.detected_columns = {}
-if 'malnutrition_rate' not in st.session_state:
     st.session_state.malnutrition_rate = None
-if 'malnourished' not in st.session_state:
     st.session_state.malnourished = None
 
 def login_user(username, password):
@@ -96,9 +89,6 @@ st.markdown("""
         }
         .main-header {
             font-size: 2rem !important;
-        }
-        .stExpander {
-            width: 100% !important;
         }
     }
     .main-header {
@@ -212,13 +202,6 @@ with st.sidebar:
     st.markdown("**Email:** mwangomanicholas@gmail.com")
     st.markdown("**WhatsApp:** +265 886867758")
     st.markdown("🇲🇼 **Built in Malawi**")
-    
-    if st.session_state.get('file_loaded', False) and st.session_state.get('uploaded_file_name'):
-        st.markdown("---")
-        st.markdown("### 📁 Current File")
-        st.markdown(f"**{st.session_state.uploaded_file_name}**")
-        if st.session_state.df_raw is not None:
-            st.markdown(f"Records: {len(st.session_state.df_raw)}")
 
 # ============================================================================
 # HEADER
@@ -311,9 +294,8 @@ if st.session_state.get('show_payment', False):
             **Payment Options:**
             - Airtel Money: +265 886867758
             - Mpamba: +265 886867758
-            - Bank Transfer (request)
             """)
-            payment_method = st.selectbox("Select Payment Method", ["Airtel Money", "Mpamba", "Bank Transfer"])
+            payment_method = st.selectbox("Select Payment Method", ["Airtel Money", "Mpamba"])
             if st.button("✅ Confirm Payment", use_container_width=True):
                 st.session_state.is_premium = True
                 st.session_state.plan = "Premium - MWK 100,000/mo"
@@ -330,7 +312,6 @@ if st.session_state.get('show_payment', False):
             - ✓ SDG Goal tracking
             - ✓ Budget calculator
             - ✓ ROI analysis
-            - ✓ Priority support
             - ✓ Unlimited reports
             """)
             if st.button("❌ Cancel", use_container_width=True):
@@ -347,24 +328,27 @@ with col2:
 st.markdown("---")
 
 # ============================================================================
-# PERSISTENT FILE UPLOAD
+# FILE UPLOAD - FIXED PERSISTENCE
 # ============================================================================
 
-uploaded_file = st.file_uploader("📤 Upload your survey data (CSV or Excel)", type=['csv', 'xlsx'], key="file_uploader")
+# File uploader with unique key
+uploaded_file = st.file_uploader("📤 Upload your survey data (CSV or Excel)", type=['csv', 'xlsx'], key="file_uploader_main")
 
+# Process new file upload
 if uploaded_file is not None:
     try:
+        # Read the file
         if uploaded_file.name.endswith('.csv'):
-            st.session_state.df_raw = pd.read_csv(uploaded_file)
+            df = pd.read_csv(uploaded_file)
         else:
-            st.session_state.df_raw = pd.read_excel(uploaded_file)
+            df = pd.read_excel(uploaded_file)
         
+        # Store in session state
+        st.session_state.df_raw = df
         st.session_state.uploaded_file_name = uploaded_file.name
-        st.session_state.uploaded_file_data = uploaded_file.getvalue()
         st.session_state.file_loaded = True
         
-        st.success(f"✅ Loaded {len(st.session_state.df_raw)} records from {uploaded_file.name}")
-        
+        # Clean the data
         def clean_data(df):
             df_clean = df.copy()
             for col in df_clean.columns:
@@ -374,23 +358,29 @@ if uploaded_file is not None:
                     df_clean[col].fillna(df_clean[col].median(), inplace=True)
             return df_clean
         
-        st.session_state.df_clean = clean_data(st.session_state.df_raw)
-        st.rerun()
+        st.session_state.df_clean = clean_data(df)
+        st.success(f"✅ Loaded {len(df)} records from {uploaded_file.name}")
+        
     except Exception as e:
         st.error(f"Error reading file: {e}")
 
-if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not None:
-    st.markdown(f"""
-    <div class="file-status">
-        📁 <strong>File loaded:</strong> {st.session_state.uploaded_file_name}<br>
-        📊 <strong>Records:</strong> {len(st.session_state.df_raw)} | 
-        <strong>Columns:</strong> {len(st.session_state.df_raw.columns)}
-    </div>
-    """, unsafe_allow_html=True)
-    
+# Use stored data if available
+if st.session_state.file_loaded and st.session_state.df_raw is not None:
     df = st.session_state.df_raw
     df_clean = st.session_state.df_clean
     total = len(df)
+    
+    # Show file status
+    st.markdown(f"""
+    <div class="file-status">
+        📁 <strong>File loaded:</strong> {st.session_state.uploaded_file_name}<br>
+        📊 <strong>Records:</strong> {total} | <strong>Columns:</strong> {len(df.columns)}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============================================================================
+    # FUNCTION TO FIND MATCHING COLUMNS
+    # ============================================================================
     
     def find_column(df, possible_names):
         df_cols_lower = {col.lower().strip(): col for col in df.columns}
@@ -422,6 +412,7 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
             else:
                 st.markdown(f"❌ **{key}**: Not found")
     
+    # Calculate metrics
     malnutrition_rate = None
     malnourished = None
     
@@ -433,6 +424,7 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
             malnourished = int(mask.sum())
             malnutrition_rate = (malnourished / total) * 100 if total > 0 else 0
     
+    # Key metrics display
     st.markdown("## 📊 Key Metrics")
     cols = st.columns(4)
     
@@ -627,18 +619,18 @@ if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not
 ╔══════════════════════════════════════════════════════════╗
 ║              NGO IMPACT DASHBOARD REPORT                 ║
 ╠══════════════════════════════════════════════════════════╣
-║ File: {st.session_state.uploaded_file_name:<35} ║
-║ Records: {total:<5}                                     ║
-║ Date: {datetime.datetime.now().strftime('%Y-%m-%d')}            ║
+║ File: {st.session_state.uploaded_file_name}  
+║ Records: {total}  
+║ Date: {datetime.datetime.now().strftime('%Y-%m-%d')}  
 ╠══════════════════════════════════════════════════════════╣
 ║                    KEY METRICS                           ║
 ╠══════════════════════════════════════════════════════════╣
-║ Malnutrition Rate: {malnutrition_text:<10}                    ║
-║ Malnourished: {malnourished_text:<10}                          ║
-║ Districts: {districts_text:<10}                                 ║
+║ Malnutrition Rate: {malnutrition_text}  
+║ Malnourished: {malnourished_text}  
+║ Districts: {districts_text}  
 ╠══════════════════════════════════════════════════════════╣
-║ Plan: {st.session_state.plan}          ║
-║ User: {st.session_state.username if st.session_state.logged_in else 'Guest'}                          ║
+║ Plan: {st.session_state.plan}  
+║ User: {st.session_state.username if st.session_state.logged_in else 'Guest'}  
 ╚══════════════════════════════════════════════════════════╝
                 """
                 
