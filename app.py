@@ -35,14 +35,22 @@ if 'logged_in' not in st.session_state:
     st.session_state.show_payment = False
     st.session_state.plan_selected = False
     
-    # File persistence variables
+# File persistence variables - initialize separately to ensure they exist
+if 'uploaded_file_data' not in st.session_state:
     st.session_state.uploaded_file_data = None
+if 'uploaded_file_name' not in st.session_state:
     st.session_state.uploaded_file_name = None
+if 'df_raw' not in st.session_state:
     st.session_state.df_raw = None
+if 'df_clean' not in st.session_state:
     st.session_state.df_clean = None
+if 'file_loaded' not in st.session_state:
     st.session_state.file_loaded = False
+if 'detected_columns' not in st.session_state:
     st.session_state.detected_columns = {}
+if 'malnutrition_rate' not in st.session_state:
     st.session_state.malnutrition_rate = None
+if 'malnourished' not in st.session_state:
     st.session_state.malnourished = None
 
 def login_user(username, password):
@@ -247,11 +255,12 @@ with st.sidebar:
     st.markdown("🇲🇼 **Built in Malawi**")
     
     # Show file status in sidebar if file is loaded
-    if st.session_state.file_loaded and st.session_state.uploaded_file_name:
+    if st.session_state.get('file_loaded', False) and st.session_state.get('uploaded_file_name'):
         st.markdown("---")
         st.markdown("### 📁 Current File")
         st.markdown(f"**{st.session_state.uploaded_file_name}**")
-        st.markdown(f"Records: {len(st.session_state.df_raw) if st.session_state.df_raw is not None else 0}")
+        if st.session_state.df_raw is not None:
+            st.markdown(f"Records: {len(st.session_state.df_raw)}")
 
 # ============================================================================
 # HEADER
@@ -438,8 +447,9 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error reading file: {e}")
 
-# If we have stored data, show file status
-if st.session_state.file_loaded and st.session_state.df_raw is not None:
+# Only proceed if we have loaded data
+if st.session_state.get('file_loaded', False) and st.session_state.df_raw is not None:
+    # Show file status
     st.markdown(f"""
     <div class="file-status">
         📁 <strong>File loaded:</strong> {st.session_state.uploaded_file_name}<br>
