@@ -37,6 +37,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.detected_columns = {}
     st.session_state.malnutrition_rate = None
     st.session_state.malnourished = None
+    st.session_state.plan_selected = False
 
 def login_user(username, password):
     """Verify login credentials"""
@@ -44,6 +45,8 @@ def login_user(username, password):
         st.session_state.logged_in = True
         st.session_state.username = username
         st.session_state.is_premium = username in PREMIUM_USERS
+        if st.session_state.is_premium:
+            st.session_state.plan = "Premium - MWK 100,000/mo"
         return True
     return False
 
@@ -54,6 +57,14 @@ def logout_user():
     st.session_state.is_premium = False
     st.session_state.plan = "Free Trial"
     st.session_state.show_payment = False
+    st.session_state.plan_selected = False
+
+def set_plan(plan_name):
+    """Set the current plan"""
+    st.session_state.plan = plan_name
+    st.session_state.plan_selected = True
+    if plan_name == "Premium - MWK 100,000/mo" and not st.session_state.is_premium:
+        st.session_state.show_payment = True
 
 # ============================================================================
 # MOBILE-RESPONSIVE CSS
@@ -100,11 +111,18 @@ st.markdown("""
         text-align: center;
         height: 100%;
         transition: transform 0.2s;
+        border: 2px solid transparent;
     }
     
     .pricing-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .pricing-card.selected {
+        border: 2px solid #28a745;
+        background-color: #f0fff0;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
     }
     
     .premium-badge {
@@ -151,6 +169,13 @@ st.markdown("""
         background-color: white;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    
+    .selected-indicator {
+        color: #28a745;
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -193,6 +218,8 @@ with st.sidebar:
         else:
             st.markdown("**Status:** Free Member")
         
+        st.markdown(f"**Current Plan:** {st.session_state.plan}")
+        
         if st.button("🚪 Logout", use_container_width=True):
             logout_user()
             st.rerun()
@@ -212,15 +239,18 @@ st.markdown('<h1 class="main-header">🌍 NGO Impact Dashboard</h1>', unsafe_all
 st.markdown("### 🎯 Turn your survey data into donor-ready reports in seconds")
 
 # ============================================================================
-# MAIN PLAN SELECTION
+# MAIN PLAN SELECTION - FIXED: Buttons stay visible
 # ============================================================================
 
 st.markdown("## 💎 Choose Your Plan")
+st.markdown("Select a plan to access features. Your selection will be highlighted.")
 
 col1, col2, col3 = st.columns(3)
 
+# Free Trial Card
 with col1:
-    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    card_class = "pricing-card selected" if st.session_state.plan == "Free Trial" else "pricing-card"
+    st.markdown(f'<div class="{card_class}">', unsafe_allow_html=True)
     st.markdown("### 🆓 Free Trial")
     st.markdown("**MWK 0/month**")
     st.markdown("""
@@ -229,15 +259,20 @@ with col1:
     ✗ No PDF export  
     ✗ No budget calculator
     """)
+    
+    # Show if this plan is currently selected
+    if st.session_state.plan == "Free Trial":
+        st.markdown('<div class="selected-indicator">✅ CURRENT PLAN</div>', unsafe_allow_html=True)
+    
     if st.button("Select Free Trial", key="free_btn", use_container_width=True):
-        st.session_state.plan = "Free Trial"
-        st.success("Free Trial selected!")
-        time.sleep(0.5)
+        set_plan("Free Trial")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+# Basic Card
 with col2:
-    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    card_class = "pricing-card selected" if st.session_state.plan == "Basic - MWK 50,000/mo" else "pricing-card"
+    st.markdown(f'<div class="{card_class}">', unsafe_allow_html=True)
     st.markdown("### 📊 Basic")
     st.markdown("**MWK 50,000/month**")
     st.markdown("""
@@ -247,11 +282,14 @@ with col2:
     ✓ Email support
     """)
     
+    # Show if this plan is currently selected
+    if st.session_state.plan == "Basic - MWK 50,000/mo":
+        st.markdown('<div class="selected-indicator">✅ CURRENT PLAN</div>', unsafe_allow_html=True)
+    
+    # Check if user can select Basic
     if st.session_state.logged_in:
         if st.button("Select Basic", key="basic_btn", use_container_width=True):
-            st.session_state.plan = "Basic - MWK 50,000/mo"
-            st.success("Basic plan selected!")
-            time.sleep(0.5)
+            set_plan("Basic - MWK 50,000/mo")
             st.rerun()
     else:
         st.button("🔒 Login to Select", key="basic_disabled", disabled=True, use_container_width=True)
@@ -259,8 +297,10 @@ with col2:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+# Premium Card
 with col3:
-    st.markdown('<div class="pricing-card">', unsafe_allow_html=True)
+    card_class = "pricing-card selected" if st.session_state.plan == "Premium - MWK 100,000/mo" else "pricing-card"
+    st.markdown(f'<div class="{card_class}">', unsafe_allow_html=True)
     st.markdown("### ⭐ Premium")
     st.markdown("**MWK 100,000/month**")
     st.markdown("""
@@ -271,13 +311,17 @@ with col3:
     ✓ Priority support
     """)
     
+    # Show if this plan is currently selected
+    if st.session_state.plan == "Premium - MWK 100,000/mo":
+        st.markdown('<div class="selected-indicator">✅ CURRENT PLAN</div>', unsafe_allow_html=True)
+    
+    # Check if user can select Premium
     if st.session_state.logged_in:
         if st.session_state.is_premium:
             st.button("✅ Premium Active", key="premium_active", disabled=True, use_container_width=True)
-            st.session_state.plan = "Premium - MWK 100,000/mo"
         else:
             if st.button("Upgrade to Premium", key="premium_btn", use_container_width=True):
-                st.session_state.show_payment = True
+                set_plan("Premium - MWK 100,000/mo")
                 st.rerun()
     else:
         st.button("🔒 Login to Upgrade", key="premium_disabled", disabled=True, use_container_width=True)
@@ -307,6 +351,8 @@ if st.session_state.get('show_payment', False):
                 st.session_state.is_premium = True
                 st.session_state.plan = "Premium - MWK 100,000/mo"
                 st.session_state.show_payment = False
+                if st.session_state.username not in PREMIUM_USERS:
+                    PREMIUM_USERS.append(st.session_state.username)
                 st.success("🎉 Payment successful! You now have Premium access!")
                 st.balloons()
                 time.sleep(2)
@@ -326,11 +372,14 @@ if st.session_state.get('show_payment', False):
                 st.session_state.show_payment = False
                 st.rerun()
 
-# Display current plan
-st.caption(f"Current selected plan: **{st.session_state.plan}**")
-
-if st.session_state.logged_in and st.session_state.is_premium:
-    st.markdown('<span class="premium-badge">⭐ PREMIUM MEMBER</span>', unsafe_allow_html=True)
+# Display current plan status
+st.markdown("---")
+col1, col2 = st.columns(2)
+with col1:
+    st.caption(f"Current selected plan: **{st.session_state.plan}**")
+with col2:
+    if st.session_state.logged_in and st.session_state.is_premium:
+        st.markdown('<span class="premium-badge">⭐ PREMIUM MEMBER</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
