@@ -7,8 +7,6 @@ import base64
 from io import BytesIO
 import datetime
 import re
-import hashlib
-import hmac
 import time
 
 # Page config
@@ -34,6 +32,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.username = None
     st.session_state.is_premium = False
     st.session_state.plan = "Free Trial"
+    st.session_state.show_payment = False
 
 def login_user(username, password):
     """Verify login credentials"""
@@ -106,6 +105,14 @@ st.markdown("""
         padding: 1rem;
         border-radius: 10px;
         margin-bottom: 1rem;
+    }
+    
+    .metric-card {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -231,12 +238,30 @@ with col3:
             st.session_state.plan = "Premium - MWK 100,000/mo"
         else:
             if st.button("Upgrade to Premium", key="premium_btn", use_container_width=True):
-                st.info("Contact admin for payment")
+                st.session_state.show_payment = True
     else:
         st.button("Login to Upgrade", key="premium_disabled", disabled=True, use_container_width=True)
         st.caption("🔒 Login required")
     
     st.markdown('</div>', unsafe_allow_html=True)
+
+# Payment modal
+if st.session_state.show_payment:
+    with st.expander("💳 Complete Payment", expanded=True):
+        st.markdown("### Premium Plan - MWK 100,000/month")
+        st.markdown("""
+        **Payment Options:**
+        - Airtel Money: +265 886867758
+        - Mpamba: +265 886867758
+        """)
+        if st.button("✅ Confirm Payment (Demo)"):
+            PREMIUM_USERS.append(st.session_state.username)
+            st.session_state.is_premium = True
+            st.session_state.plan = "Premium - MWK 100,000/mo"
+            st.session_state.show_payment = False
+            st.success("Payment successful! You now have Premium access!")
+            st.balloons()
+            st.rerun()
 
 st.caption(f"Current selected plan: **{st.session_state.plan}**")
 
@@ -278,6 +303,7 @@ uploaded_file = st.file_uploader("📤 Upload your survey data (CSV or Excel)", 
 
 if uploaded_file is not None:
     try:
+        # Read file
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
@@ -285,6 +311,7 @@ if uploaded_file is not None:
         
         st.success(f"✅ Loaded {len(df)} records from {uploaded_file.name}")
         
+        # Show raw data
         with st.expander("📋 View Raw Data & Detected Columns"):
             st.dataframe(df.head(100))
             detected = detect_columns(df)
@@ -295,6 +322,7 @@ if uploaded_file is not None:
                 else:
                     st.markdown(f"❌ **{key}**: Not found")
         
+        # Clean data
         def clean_data(df):
             df_clean = df.copy()
             for col in df_clean.columns:
@@ -308,6 +336,7 @@ if uploaded_file is not None:
         detected = detect_columns(df_clean)
         total = len(df_clean)
         
+        # Calculate metrics
         malnutrition_rate = None
         malnourished = None
         
@@ -361,7 +390,7 @@ if uploaded_file is not None:
                 
                 if df_clean[nutrition_col].dtype == 'object':
                     district_data = df_clean.groupby(district_col)[nutrition_col].apply(
-                        lambda x: (x.astype(str).str.lower().str.contains('|'.join(['malnourished', 'malnutrition']), na=False).sum() / len(x)) * 100
+                        lambda x: (x.astype(str).str.lower().str.contains('malnourished', na=False).sum() / len(x)) * 100
                     ).reset_index()
                     district_data.columns = [district_col, 'Malnutrition Rate (%)']
                     
@@ -411,19 +440,18 @@ if uploaded_file is not None:
                 st.markdown("### 🎯 SDG Progress Report")
                 
                 if malnutrition_rate is not None:
-                    # Create SDG metrics
+                    # SDG data
                     sdg_data = pd.DataFrame({
                         'SDG Goal': ['Zero Hunger (SDG 2)', 'Good Health (SDG 3)', 'Gender Equality (SDG 5)', 'Clean Water (SDG 6)'],
-                        'Current Progress (%)': [malnutrition_rate, 65, 48, 60],
-                        'Target (%)': [5, 100, 50, 100],
-                        'Gap': [malnutrition_rate - 5, 35, 2, 40]
+                        'Current (%)': [malnutrition_rate, 65, 48, 60],
+                        'Target (%)': [5, 100, 50, 100]
                     })
                     
                     st.dataframe(sdg_data, use_container_width=True)
                     
-                    # Create comparison chart
+                    # Create chart
                     fig = go.Figure()
-                    fig.add_trace(go.Bar(name='Current', x=sdg_data['SDG Goal'], y=sdg_data['Current Progress (%)'],
+                    fig.add_trace(go.Bar(name='Current', x=sdg_data['SDG Goal'], y=sdg_data['Current (%)'],
                                          marker_color='steelblue'))
                     fig.add_trace(go.Bar(name='SDG Target', x=sdg_data['SDG Goal'], y=sdg_data['Target (%)'],
                                          marker_color='green'))
@@ -431,10 +459,9 @@ if uploaded_file is not None:
                                      yaxis_title='Percentage (%)')
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Key insight
-                    st.info(f"🔍 **Key Insight:** Malnutrition rate is {malnutrition_rate:.1f}% vs SDG target of 5%. Gap: {malnutrition_rate-5:.1f}%")
+                    st.info(f"🔍 **Key Insight:** Malnutrition rate is {malnutrition_rate:.1f}% vs SDG target of 5%")
                 else:
-                    st.warning("No nutrition data found to calculate SDG progress")
+                    st.warning("No nutrition data found for SDG analysis")
             else:
                 st.warning("⚠️ SDG Goal analysis is available in **Premium Plan**")
         
@@ -455,7 +482,6 @@ if uploaded_file is not None:
                 
                 st.markdown("---")
                 
-                # Calculate costs
                 basic_cost = target_pop * 45000
                 comprehensive_cost = (total * 15000) + (target_pop * 45000) + (num_regions * 5000000)
                 
@@ -481,10 +507,13 @@ if uploaded_file is not None:
         with tab4:
             if st.session_state.plan != "Free Trial":
                 st.markdown("### 📄 Generate Reports")
+                
                 if st.button("📥 Generate Report", use_container_width=True):
-                    st.success("✅ Report generated!")
+                    # Fix the f-string syntax error here
+                    malnutrition_text = f"{malnutrition_rate:.1f}%" if malnutrition_rate is not None else "N/A"
+                    malnourished_text = f"{malnourished}" if malnourished is not None else "N/A"
+                    districts_text = f"{len(df_clean[detected['district']].unique())}" if detected['district'] else "N/A"
                     
-                    # Create summary
                     summary = f"""
 NGO IMPACT DASHBOARD REPORT
 ===========================
@@ -493,20 +522,31 @@ Records: {total}
 Generated: {datetime.datetime.now().strftime('%Y-%m-%d')}
 
 KEY METRICS:
-- Malnutrition Rate: {malnutrition_rate:.1f}% if malnutrition_rate else 'N/A'}
-- Malnourished: {malnourished if malnourished else 'N/A'}
-- Districts: {len(df_clean[detected['district']].unique()) if detected['district'] else 'N/A'}
+- Malnutrition Rate: {malnutrition_text}
+- Malnourished: {malnourished_text}
+- Districts: {districts_text}
+
+PLAN: {st.session_state.plan}
+USER: {st.session_state.username if st.session_state.logged_in else 'Guest'}
                     """
                     
+                    st.success("✅ Report generated!")
+                    
+                    # Download CSV
                     csv = df_clean.to_csv(index=False)
                     b64 = base64.b64encode(csv.encode()).decode()
-                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">📥 Download Cleaned Data</a>'
+                    href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv" style="background-color: #28a745; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin: 10px 0;">📥 Download Cleaned Data (CSV)</a>'
                     st.markdown(href, unsafe_allow_html=True)
+                    
+                    # Download report
+                    b64_report = base64.b64encode(summary.encode()).decode()
+                    href_report = f'<a href="data:file/txt;base64,{b64_report}" download="report.txt" style="background-color: #17a2b8; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin: 10px 0;">📥 Download Report (TXT)</a>'
+                    st.markdown(href_report, unsafe_allow_html=True)
             else:
                 st.info("📌 Reports are available in **Basic** and **Premium** plans")
     
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error: {str(e)}")
 
 # ============================================================================
 # FOOTER
@@ -521,4 +561,4 @@ with col2:
 with col3:
     st.markdown("📱 **WhatsApp:** +265 886867758")
 
-st.markdown("<div style='text-align: center; color: gray; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong></div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; padding: 1rem;'>Developed by <strong>Nicholas Mwangomba</strong> | Works on ALL devices</div>", unsafe_allow_html=True)
